@@ -1,6 +1,8 @@
 package main
 
 import (
+	db "WordleScoreboard/database"
+	user "WordleScoreboard/user"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
@@ -11,9 +13,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-// It might be relevant to store the version, it might not
-const Version = "v0.0.0-alpha"
 
 func startServer() *discordgo.Session {
 	discord, _ := discordgo.New("Bot " + os.Getenv("BOT_TOKEN"))
@@ -54,8 +53,35 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		score = getScore(guessCount, isOnHard)
 
-		s.ChannelMessageSend(m.ChannelID, "Score for #"+strconv.Itoa(wordleCount)+": "+strconv.Itoa(score))
+		err := db.UpdateUserScore(m.Author.ID, score, wordleCount)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Could not create user")
+		} else {
+			s.ChannelMessageSend(m.ChannelID, "Score for #"+strconv.Itoa(wordleCount)+": "+strconv.Itoa(score))
+		}
 	}
+}
+
+func WeeklyReset() {
+	// TODO: get all the users and create a list of User to easily iterate through them and their scores.
+	// Example of how to initialize a new user,
+	exampleUser := user.User{
+		Id:                   "21354",
+		FirstPlaceCount:      2,
+		WeeklyScore:          3,
+		MostRecentSubmission: 4,
+		TotalAverage:         5.67,
+		WeekDayScoreMap: map[string][]int{
+			"currentWeek": {},
+			"lastWeek":    {},
+		},
+	}
+	updateUserList := []user.User{exampleUser}
+	// TODO: Calculate Winner and update their first place count
+
+	// TODO: pass in the user list, preferable with all of the data already changed here so we can
+	// easily pass it into the firestore update function
+	db.WeeklyReset(updateUserList)
 }
 
 /*
@@ -98,6 +124,7 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
+	db.StartFireBase()
 	discord := startServer()
 
 	stop := make(chan os.Signal, 1)
@@ -105,4 +132,5 @@ func main() {
 	<-stop
 
 	discord.Close()
+	db.CloseFireBase()
 }
