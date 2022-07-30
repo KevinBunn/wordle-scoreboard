@@ -20,7 +20,7 @@ var client *firestore.Client
 
 // StartFireBase Initialize Firebase connection
 func StartFireBase() {
-	serviceAccount := option.WithCredentialsFile("./service-account.json")
+	serviceAccount := option.WithCredentialsFile("./google-credentials.json")
 	app, err := firebase.NewApp(ctx, nil, serviceAccount)
 	if err != nil {
 		log.Fatalln(err)
