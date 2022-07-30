@@ -119,9 +119,11 @@ func getScore(guessCount string, isOnHard bool) int {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file")
+	if os.Getenv("ENV") != "Production" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalf("Error loading .env file")
+		}
 	}
 
 	db.StartFireBase()
