@@ -6,5 +6,5 @@ type User struct {
 	WeeklyScore          int
 	MostRecentSubmission int
 	TotalAverage         float32
-	WeekDayScoreMap      map[string][]int // a map with a string key and an integer array value
+	ScoreMap             map[string]int // a map with a string key and an integer array value
 }

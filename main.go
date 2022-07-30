@@ -71,9 +71,9 @@ func WeeklyReset() {
 		WeeklyScore:          3,
 		MostRecentSubmission: 4,
 		TotalAverage:         5.67,
-		WeekDayScoreMap: map[string][]int{
-			"currentWeek": {},
-			"lastWeek":    {},
+		ScoreMap: map[string]int{
+			"currentWeek": 0,
+			"lastWeek":    0,
 		},
 	}
 	updateUserList := []user.User{exampleUser}
