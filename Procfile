@@ -1,2 +1,2 @@
 web: bin/WordleScoreboard
-worker:  main.go
+worker: go main.go
