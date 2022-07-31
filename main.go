@@ -82,9 +82,9 @@ func WeeklyReset() {
 		WeeklyScore:          3,
 		MostRecentSubmission: 4,
 		TotalAverage:         5.67,
-		WeekDayScoreMap: map[string][]int{
-			"currentWeek": {},
-			"lastWeek":    {},
+		ScoreMap: map[string]int{
+			"currentWeek": 0,
+			"lastWeek":    0,
 		},
 	}
 	updateUserList := []user.User{exampleUser}
@@ -157,9 +157,11 @@ func getWeekIndexFromCurrentDay() int {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file")
+	if os.Getenv("ENV") != "Production" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalf("Error loading .env file")
+		}
 	}
 
 	db.StartFireBase()

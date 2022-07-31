@@ -1,6 +1,8 @@
 .env
-service-account.json
+google-credentials.json
 .DS_Store
 # Editor directories and files
 .idea
 .vscode
+
+vendor/*/

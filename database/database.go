@@ -5,18 +5,22 @@ import (
 	"cloud.google.com/go/firestore"
 	"context"
 	firebase "firebase.google.com/go"
+	"fmt"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"log"
+	"math/big"
+	"strconv"
+	"time"
 )
 
 // Global variables that will be accessed in most/all functions
 var ctx = context.Background()
 var client *firestore.Client
 
-// Initialize Firebase connection
+// StartFireBase Initialize Firebase connection
 func StartFireBase() {
-	serviceAccount := option.WithCredentialsFile("./service-account.json")
+	serviceAccount := option.WithCredentialsFile("./google-credentials.json")
 	app, err := firebase.NewApp(ctx, nil, serviceAccount)
 	if err != nil {
 		log.Fatalln(err)
@@ -34,6 +38,18 @@ func CloseFireBase() {
 	}
 }
 
+func incrementWeeklyScore(totalDays *int, weeklyScore *int, wordleCount int, weekDay *time.Weekday, scoreMap map[string]int) {
+	*totalDays++
+	*weekDay--
+	// Fancy if statement to check if the key (wordleCount - totalDays) actually exists in the map, if it does
+	// previousDayScore will contain the value, and ok will be true.
+	if previousDayScore, ok := scoreMap[strconv.Itoa(wordleCount-*totalDays)]; ok {
+		*weeklyScore += previousDayScore
+	} else {
+		*weeklyScore += 0 // essentially...if you miss your days you are penalized
+	}
+}
+
 func UpdateUserScore(uid string, score int, wordleCount int) error {
 	// Check if user already exists
 	userSnapshot, err := GetUserSnapshot(uid)
@@ -44,8 +60,8 @@ func UpdateUserScore(uid string, score int, wordleCount int) error {
 			"weeklyScore":          score,
 			"mostRecentSubmission": wordleCount,
 			"totalAverage":         score,
-			"weekDayScoreMap": map[string][]int{
-				"currentWeek": {score}, // TODO: we need to address how many days we are into the week here
+			"scoreMap": map[string]int{
+				strconv.Itoa(wordleCount): score,
 			},
 		})
 		return err
@@ -53,27 +69,58 @@ func UpdateUserScore(uid string, score int, wordleCount int) error {
 		return err
 	} else {
 		// use the snapshot to update a user
-		// TODO: We need to grab the existing user week to append a new score onto it
-		// TODO: calculate the new weekly score with the new array
-		// TODO: average the scores together
+
+		// create a user struct to help read/manipulate data
+		var tempUser user.User
+		err = userSnapshot.DataTo(&tempUser)
+		if err != nil {
+			return err
+		}
+
+		// update score map
+		tempUser.ScoreMap[strconv.Itoa(wordleCount)] = score
+
+		// calculate weekly score
+		var weekDay = time.Now().Weekday()
+		var weeklyScore int
+		if weekDay == time.Monday {
+			weeklyScore = score
+		} else {
+			// iterate through the week to get the total and average
+			totalDays := 0
+			weeklyScore = score
+			incrementWeeklyScore(&totalDays, &weeklyScore, wordleCount, &weekDay, tempUser.ScoreMap)
+			for weekDay != time.Monday {
+				incrementWeeklyScore(&totalDays, &weeklyScore, wordleCount, &weekDay, tempUser.ScoreMap)
+				fmt.Println(weekDay)
+			}
+		}
+
+		totalScore := 0
+		for _, val := range tempUser.ScoreMap {
+			totalScore += val
+		}
+		unRoundedAverageScore := float64(totalScore) / float64(len(tempUser.ScoreMap))
+		// this is the best way I could find to get 2 decimals of precision
+		averageScoreString := big.NewFloat(unRoundedAverageScore).Text('f', 2)
+		averageScore, _ := strconv.ParseFloat(averageScoreString, 64)
+
 		_, err := userSnapshot.Ref.Update(ctx, []firestore.Update{
 			{
 				Path:  "weeklyScore",
-				Value: score, // TODO: make this the sum
+				Value: weeklyScore,
 			},
 			{
 				Path:  "totalAverage",
-				Value: score, // TODO: make this the average
+				Value: averageScore,
 			},
 			{
 				Path:  "mostRecentSubmission",
 				Value: wordleCount,
 			},
 			{
-				Path: "weekDayScoreMap",
-				Value: map[string][]int{
-					"currentWeek": {score}, // we'll actually need to use append eventually
-				},
+				Path:  "scoreMap",
+				Value: tempUser.ScoreMap,
 			},
 		})
 		return err
@@ -95,14 +142,14 @@ func GetAllUsers() []map[string]interface{} {
 	var userList []map[string]interface{}
 	iter := client.Collection("Users").Documents(ctx)
 	for {
-		doc, err := iter.Next()
+		snapshot, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
 			// do something
 		}
-		userList = append(userList, doc.Data())
+		userList = append(userList, snapshot.Data())
 	}
 	return userList
 }
