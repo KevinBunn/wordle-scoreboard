@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func startServer() *discordgo.Session {
@@ -47,17 +48,27 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		wordleCount, _ = strconv.Atoi(subMessages[1])
 		scoreSplit := strings.Split(subMessages[2], "/")
 		guessCount = scoreSplit[0]
+		guessCountInt, _ := strconv.Atoi(guessCount)
 		if strings.HasSuffix(subMessages[2], "*") {
 			isOnHard = true
 		}
 
-		score = getScore(guessCount, isOnHard)
+		if wordleCount != 0 && (guessCount == "X" || (guessCountInt >= 1 && guessCountInt <= 6)) { //this should check if the entry is valid with these additional parameters
+			/*
+				The below should only be executed if it is decisively understood that the entry is valid
+			*/
 
-		err := db.UpdateUserScore(m.Author.ID, score, wordleCount)
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Could not create user")
-		} else {
-			s.ChannelMessageSend(m.ChannelID, "Score for #"+strconv.Itoa(wordleCount)+": "+strconv.Itoa(score))
+			score = getScore(guessCount, isOnHard)
+			entryDayIndex := getDayIndexFromWordleNumber(wordleCount)
+			entryWeekIndex := getWeekIndexFromWordleNumber(wordleCount)
+			nowWeekIndex := getWeekIndexFromCurrentDay()
+
+			err := db.UpdateUserScore(m.Author.ID, score, wordleCount)
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "Could not create user")
+			} else {
+				s.ChannelMessageSend(m.ChannelID, "Score for #"+strconv.Itoa(wordleCount)+": "+strconv.Itoa(score)+". Day Index: "+strconv.Itoa(entryDayIndex)+"; Week Index: "+strconv.Itoa(entryWeekIndex)+"; Real Week Index: "+strconv.Itoa(nowWeekIndex))
+			}
 		}
 	}
 }
@@ -116,6 +127,33 @@ func getScore(guessCount string, isOnHard bool) int {
 	}
 
 	return score
+}
+
+func getDayIndexFromWordleNumber(wordleNumber int) int {
+	/*387 is a Monday (0)
+	387 % 7 = 2
+	Therefore, the index is (n - 2) % 7
+	where n = the wordle number
+	*/
+
+	dayIndex := (wordleNumber - 2) % 7
+
+	return dayIndex
+}
+
+func getWeekIndexFromWordleNumber(wordleNumber int) int {
+	weekIndex := (wordleNumber - 2) / 7 //does this automatically floor to int? It does in C#.....
+
+	return weekIndex
+}
+
+func getWeekIndexFromCurrentDay() int {
+	//week 55 is the week this wordle was made, Mon Jul 11
+	mondayOfWeek55 := time.Date(2022, 07, 11, 0, 0, 0, 0, time.UTC)
+
+	timeSinceMondayOfWeek55 := time.Now().Sub(mondayOfWeek55).Hours()
+
+	return int(math.Floor(timeSinceMondayOfWeek55))/(24*7) + 55
 }
 
 func main() {
