@@ -1,2 +1,1 @@
-web: bin/WordleScoreboard
-worker: go main.go
+worker: bin/WordleScoreboard
