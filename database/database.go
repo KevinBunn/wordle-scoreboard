@@ -5,6 +5,7 @@ import (
 	"cloud.google.com/go/firestore"
 	"context"
 	firebase "firebase.google.com/go"
+	"fmt"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"log"
@@ -46,8 +47,8 @@ func UpdateUserScore(uid string, score int, wordleCount int, dayIndex int, weekI
 			"weeklyScore":          score,
 			"mostRecentSubmission": wordleCount,
 			"totalAverage":         score,
-			"scoreMap": map[string]map[string]int{
-				strconv.Itoa(weekIndex): {strconv.Itoa(dayIndex): score},
+			"scoreMap": map[string]string{
+				strconv.Itoa(wordleCount): strconv.Itoa(dayIndex) + strconv.Itoa(weekIndex),
 			},
 		})
 		return err
@@ -65,16 +66,17 @@ func UpdateUserScore(uid string, score int, wordleCount int, dayIndex int, weekI
 
 		// update score map
 
-		if len(tempUser.ScoreMap[strconv.Itoa(weekIndex)]) == 0 {
-			// initialize the secondary map first
-			tempUser.ScoreMap[strconv.Itoa(weekIndex)] = map[string]int{}
-		}
-		tempUser.ScoreMap[strconv.Itoa(weekIndex)][strconv.Itoa(dayIndex)] = score
+		//if len(tempUser.ScoreMap[strconv.Itoa(weekIndex)]) == 0 {
+		//	// initialize the secondary map first
+		//	tempUser.ScoreMap[strconv.Itoa(weekIndex)] = map[string]int{}
+		//}
+		tempUser.ScoreMap[strconv.Itoa(wordleCount)] = strconv.Itoa(score)
 
 		// calculate weekly score
 		var weeklyScore int
-		for _, val := range tempUser.ScoreMap[strconv.Itoa(weekIndex)] {
-			weeklyScore += val
+		for _, val := range tempUser.ScoreMap {
+			fmt.Println(val)
+			weeklyScore += 1
 		}
 
 		unRoundedAverageScore := float64(weeklyScore) / float64(len(tempUser.ScoreMap))
