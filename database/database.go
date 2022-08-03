@@ -5,13 +5,11 @@ import (
 	"cloud.google.com/go/firestore"
 	"context"
 	firebase "firebase.google.com/go"
-	"fmt"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"log"
 	"math/big"
 	"strconv"
-	"time"
 )
 
 // Global variables that will be accessed in most/all functions
@@ -38,19 +36,7 @@ func CloseFireBase() {
 	}
 }
 
-func incrementWeeklyScore(totalDays *int, weeklyScore *int, wordleCount int, weekDay *time.Weekday, scoreMap map[string]int) {
-	*totalDays++
-	*weekDay--
-	// Fancy if statement to check if the key (wordleCount - totalDays) actually exists in the map, if it does
-	// previousDayScore will contain the value, and ok will be true.
-	if previousDayScore, ok := scoreMap[strconv.Itoa(wordleCount-*totalDays)]; ok {
-		*weeklyScore += previousDayScore
-	} else {
-		*weeklyScore += 0 // essentially...if you miss your days you are penalized
-	}
-}
-
-func UpdateUserScore(uid string, score int, wordleCount int) error {
+func UpdateUserScore(uid string, score int, wordleCount int, dayIndex int, weekIndex int) error {
 	// Check if user already exists
 	userSnapshot, err := GetUserSnapshot(uid)
 	if err == iterator.Done {
@@ -60,8 +46,8 @@ func UpdateUserScore(uid string, score int, wordleCount int) error {
 			"weeklyScore":          score,
 			"mostRecentSubmission": wordleCount,
 			"totalAverage":         score,
-			"scoreMap": map[string]int{
-				strconv.Itoa(wordleCount): score,
+			"scoreMap": map[string]map[string]int{
+				strconv.Itoa(weekIndex): {strconv.Itoa(dayIndex): score},
 			},
 		})
 		return err
@@ -78,29 +64,20 @@ func UpdateUserScore(uid string, score int, wordleCount int) error {
 		}
 
 		// update score map
-		tempUser.ScoreMap[strconv.Itoa(wordleCount)] = score
+
+		if len(tempUser.ScoreMap[strconv.Itoa(weekIndex)]) == 0 {
+			// initialize the secondary map first
+			tempUser.ScoreMap[strconv.Itoa(weekIndex)] = map[string]int{}
+		}
+		tempUser.ScoreMap[strconv.Itoa(weekIndex)][strconv.Itoa(dayIndex)] = score
 
 		// calculate weekly score
-		var weekDay = time.Now().Weekday()
 		var weeklyScore int
-		if weekDay == time.Monday {
-			weeklyScore = score
-		} else {
-			// iterate through the week to get the total and average
-			totalDays := 0
-			weeklyScore = score
-			incrementWeeklyScore(&totalDays, &weeklyScore, wordleCount, &weekDay, tempUser.ScoreMap)
-			for weekDay != time.Monday {
-				incrementWeeklyScore(&totalDays, &weeklyScore, wordleCount, &weekDay, tempUser.ScoreMap)
-				fmt.Println(weekDay)
-			}
+		for _, val := range tempUser.ScoreMap[strconv.Itoa(weekIndex)] {
+			weeklyScore += val
 		}
 
-		totalScore := 0
-		for _, val := range tempUser.ScoreMap {
-			totalScore += val
-		}
-		unRoundedAverageScore := float64(totalScore) / float64(len(tempUser.ScoreMap))
+		unRoundedAverageScore := float64(weeklyScore) / float64(len(tempUser.ScoreMap))
 		// this is the best way I could find to get 2 decimals of precision
 		averageScoreString := big.NewFloat(unRoundedAverageScore).Text('f', 2)
 		averageScore, _ := strconv.ParseFloat(averageScoreString, 64)

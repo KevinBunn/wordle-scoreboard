@@ -2,7 +2,6 @@ package main
 
 import (
 	db "WordleScoreboard/database"
-	user "WordleScoreboard/user"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
@@ -63,8 +62,9 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			entryWeekIndex := getWeekIndexFromWordleNumber(wordleCount)
 			nowWeekIndex := getWeekIndexFromCurrentDay()
 
-			err := db.UpdateUserScore(m.Author.ID, score, wordleCount)
+			err := db.UpdateUserScore(m.Author.ID, score, wordleCount, entryDayIndex, entryWeekIndex)
 			if err != nil {
+				fmt.Println(err.Error())
 				s.ChannelMessageSend(m.ChannelID, "Could not create user")
 			} else {
 				s.ChannelMessageSend(m.ChannelID, "Score for #"+strconv.Itoa(wordleCount)+": "+strconv.Itoa(score)+". Day Index: "+strconv.Itoa(entryDayIndex)+"; Week Index: "+strconv.Itoa(entryWeekIndex)+"; Real Week Index: "+strconv.Itoa(nowWeekIndex))
@@ -76,23 +76,23 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 func WeeklyReset() {
 	// TODO: get all the users and create a list of User to easily iterate through them and their scores.
 	// Example of how to initialize a new user,
-	exampleUser := user.User{
-		Id:                   "21354",
-		FirstPlaceCount:      2,
-		WeeklyScore:          3,
-		MostRecentSubmission: 4,
-		TotalAverage:         5.67,
-		ScoreMap: map[string]int{
-			"currentWeek": 0,
-			"lastWeek":    0,
-		},
-	}
-	updateUserList := []user.User{exampleUser}
+	//exampleUser := user.User{
+	//	Id:                   "21354",
+	//	FirstPlaceCount:      2,
+	//	WeeklyScore:          3,
+	//	MostRecentSubmission: 4,
+	//	TotalAverage:         5.67,
+	//	ScoreMap: map[string]int{
+	//		"currentWeek": 0,
+	//		"lastWeek":    0,
+	//	},
+	//}
+	//updateUserList := []user.User{exampleUser}
 	// TODO: Calculate Winner and update their first place count
 
 	// TODO: pass in the user list, preferable with all of the data already changed here so we can
 	// easily pass it into the firestore update function
-	db.WeeklyReset(updateUserList)
+	// db.WeeklyReset(updateUserList)
 }
 
 /*
